@@ -17,9 +17,9 @@ def forecast_weather():
     """
     Анализ погодных условий по городам
     """
-    # city_name = "MOSCOW"
-    # ywAPI = YandexWeatherAPI()
-    # resp = ywAPI.get_forecasting(city_name)
+    cities = list(CITIES)
+    fetch_data_service = DataFetchingTask(cities)
+    cities_forecasts = fetch_data_service.fetch_forecasts()
     pass
 
 

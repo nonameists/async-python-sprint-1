@@ -7,7 +7,7 @@ WEATHER_CONDITIONS = {
     "thunderstorm-with-rain", "thunderstorm-with-hail"
 }
 
-logger_format = "%(levelname)s %(filename)s %(asctime)s - %(message)s"
+logger_format = "%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 
 logging.basicConfig(
     filename="logfile.log",
