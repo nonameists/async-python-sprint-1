@@ -1,6 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Iterator
 
 from api_client import YandexWeatherAPI
 from config import logger, GOOD_WEATHER_CONDITIONS
@@ -23,19 +23,10 @@ class DataFetchingTask:
             raw_cities_data_response = pool.map(
                 self._fetch_city_forecast_data, self.cities
             )
-        try:
-            cities_forecast_data = [
-                CityWeatherDataModel(**city_data)
-                for city_data in raw_cities_data_response
-                if city_data is not None
-            ]
-            logger.info("Загрузка данных по городам завершена")
-            return cities_forecast_data
-        except ValueError as value_error:
-            logger.error(
-                f"Произошла ошибка {value_error} во время валидации данных"
-                f" в моделе CityWeatherDataModel"
-            )
+
+        cities_forecast_data = self._validate_raw_data(raw_cities_data_response)
+        logger.info("Загрузка данных по городам завершена")
+        return cities_forecast_data
 
     def _fetch_city_forecast_data(self, city_name: str) -> Optional[Dict]:
         """Внутренний метод для получения 'сырых' данных от API"""
@@ -50,6 +41,24 @@ class DataFetchingTask:
                 f"Произошла ошибка {fetch_error} во время загрузки данных"
             )
 
+    def _validate_raw_data(self, raw_cities_data_response: Iterator[Dict | None]) -> List[CityWeatherDataModel]:
+        """Внутренний метод валидации 'сырых' данных."""
+        validated_result = []
+        for city_data in raw_cities_data_response:
+            if city_data is None:
+                continue
+            try:
+                data = CityWeatherDataModel(**city_data)
+                validated_result.append(data)
+            except ValueError as value_error:
+                logger.error(
+                    f"Произошла ошибка {value_error} во время валидации данных"
+                    f" в моделе CityWeatherDataModel"
+                )
+                continue
+
+        return validated_result
+
 
 class DataCalculationTask:
     MIN_HOUR = 9
@@ -62,7 +71,7 @@ class DataCalculationTask:
         """Публичный метод запуска просчета данных по городам."""
         with ProcessPoolExecutor() as pool:
             raw_result = pool.map(self._calculate_data, self.cities_forecasts)
-            result = [CalculatedCityWeatherDataModel(**raw_city_result) for raw_city_result in raw_result]
+        result = [CalculatedCityWeatherDataModel(**raw_city_result) for raw_city_result in raw_result]
         return result
 
     def _calculate_data(self, city_data: CityWeatherDataModel) -> Dict:
@@ -85,6 +94,9 @@ class DataCalculationTask:
             total_temp = 0
             good_weather_hours = 0
             days += 1
+            # если нет данных по времени идем на другой день
+            if len(forecast.hours) == 0:
+                continue
             for item in forecast.hours:
                 if self.MIN_HOUR <= item.hour <= self.MAX_HOUR:
                     total_temp += item.temp
@@ -99,7 +111,7 @@ class DataCalculationTask:
             total_hours_good_weather += good_weather_hours
 
         city_data_forecast["total_average_temp"] = round(total_days_temp/days, 1)
-        city_data_forecast["total_good_weather_hours"] = round(total_hours_good_weather/days, 1)
+        city_data_forecast["total_average_good_weather_hours"] = round(total_hours_good_weather/days, 1)
         logger.info(f"Подсчет закончен для г.{city_data.city_name}")
 
         return city_data_forecast

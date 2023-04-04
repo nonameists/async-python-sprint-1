@@ -37,4 +37,4 @@ class CalculatedCityWeatherDataModel(BaseModel):
     city_name: str
     days: List[CityDayWeatherModel]
     total_average_temp: float
-    total_good_weather_hours: float
+    total_average_good_weather_hours: float
