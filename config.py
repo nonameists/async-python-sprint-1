@@ -7,6 +7,10 @@ WEATHER_CONDITIONS = {
     "thunderstorm-with-rain", "thunderstorm-with-hail"
 }
 
+GOOD_WEATHER_CONDITIONS = {
+    "clear", "partly-cloudy", "cloudy", "overcast",
+}
+
 logger_format = "%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 
 logging.basicConfig(

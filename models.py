@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, conlist
 
 from config import WEATHER_CONDITIONS
 
@@ -25,3 +25,16 @@ class CityForecastDataModel(BaseModel):
 class CityWeatherDataModel(BaseModel):
     city_name: str
     forecasts: List[CityForecastDataModel]
+
+
+class CityDayWeatherModel(BaseModel):
+    date: str
+    average_temp: float
+    good_weather_hours: int
+
+
+class CalculatedCityWeatherDataModel(BaseModel):
+    city_name: str
+    days: List[CityDayWeatherModel]
+    total_average_temp: float
+    total_good_weather_hours: float

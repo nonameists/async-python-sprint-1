@@ -1,9 +1,3 @@
-# import logging
-# import threading
-# import subprocess
-# import multiprocessing
-
-from api_client import YandexWeatherAPI
 from tasks import (
     DataFetchingTask,
     DataCalculationTask,
@@ -20,7 +14,9 @@ def forecast_weather():
     cities = list(CITIES)
     fetch_data_service = DataFetchingTask(cities)
     cities_forecasts = fetch_data_service.fetch_forecasts()
-    pass
+
+    calc_data_service = DataCalculationTask(cities_forecasts)
+    calculated_data = calc_data_service.get_calculated_data()
 
 
 if __name__ == "__main__":
