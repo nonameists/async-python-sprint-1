@@ -90,3 +90,12 @@ city_name = "MOSCOW"
 ywAPI = YandexWeatherAPI()
 resp = ywAPI.get_forecasting(city_name)
 ```
+
+## Запуск
+
+ - Склонировать репозиторий
+ - Создать вирутальное окружение python -m venv venv
+ - Активировать вирутальное окружение source venv/bin/activate
+ - Устновить зависимости pip install -r requirements.txt
+ - Запустить forecasting.py
+ - Будет создан csv файл со статистикой по городам
