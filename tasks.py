@@ -1,9 +1,10 @@
+import csv
 import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import List, Dict, Optional, Iterator
 
 from api_client import YandexWeatherAPI
-from config import logger, GOOD_WEATHER_CONDITIONS
+from config import logger, GOOD_WEATHER_CONDITIONS, CSV_FILE_NAME
 from models import (
     CityWeatherDataModel,
     CalculatedCityWeatherDataModel,
@@ -130,9 +131,91 @@ class DataCalculationTask:
         return city_data_forecast
 
 
-class DataAggregationTask:
-    pass
-
-
 class DataAnalyzingTask:
-    pass
+    def __init__(
+        self, calculated_cities_data: List[CalculatedCityWeatherDataModel]
+    ) -> None:
+        self.data = calculated_cities_data
+        self.main_town = None
+
+    def analyze_data(self) -> List[CalculatedCityWeatherDataModel]:
+        """Метод для запуска сортировки городов, выставления рейтинга и записи наилучшего города."""
+        self._sort_data_by_temp_and_weather()
+        self._set_rating_to_cities()
+        self._set_main_town()
+
+        return self.data
+
+    def _sort_data_by_temp_and_weather(self) -> None:
+        """Внутренний метод сортировки городов по температуре и 'хорошим' дням."""
+        logger.info(
+            "Запуск сортировки городов по средней температуре и погожих днях"
+        )
+        self.data = sorted(
+            self.data,
+            key=lambda x: [
+                x.total_average_temp,
+                x.total_average_good_weather_hours,
+            ],
+            reverse=True,
+        )
+
+    def _set_rating_to_cities(self) -> None:
+        """Внутренний метод установки атрибута rating для городов."""
+        logger.info("Запуск установки рейтингов для городов")
+        for rating, city_data in enumerate(self.data, 1):
+            city_data.rating = rating
+
+    def _set_main_town(self) -> None:
+        """Внутренний метод устанавлиев 'лучший' город для посещения среди отсортированных городов"""
+        self.main_town = self.data[0].city_name
+
+
+class DataAggregationTask:
+    def __init__(self, data: List[CalculatedCityWeatherDataModel]) -> None:
+        self.data = data
+
+    def save_data_to_csv(self) -> None:
+        """Публичный метод сохранения данных в csv файл."""
+        data_to_csv = self._prepare_data_to_csv()
+
+        with open(CSV_FILE_NAME, "w") as file:
+            logger.info("Запуск импорта данных в csv файл")
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC)
+            for row in data_to_csv:
+                writer.writerow(row)
+        logger.info(f"CSV файл {CSV_FILE_NAME} успешно создан")
+        print(f"CSV файл {CSV_FILE_NAME} успешно создан")
+
+    def _prepare_data_to_csv(self) -> List:
+        """Внутренний метод подготовки данных для создания csv файла."""
+        logger.info("Запуск подготовки данных для импорта в csv таблицу")
+        headers = [
+            "Город/день",
+            "",
+            *[city_day.date for city_day in self.data[0].days],
+            "Среднее",
+            "Рейтинг",
+        ]
+
+        data_to_csv = [headers]
+
+        for city in self.data:
+            temp_data = [
+                city.city_name,
+                "Температура, среднее",
+                *city.get_avg_temp_data(),
+                city.total_average_temp,
+                city.rating,
+            ]
+            data_to_csv.append(temp_data)
+            good_hours_data = [
+                "",
+                "Без осадков, часов",
+                *city.get_all_good_weather_hours(),
+                city.total_average_good_weather_hours,
+                "",
+            ]
+            data_to_csv.append(good_hours_data)
+
+        return data_to_csv

@@ -21,3 +21,5 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger()
+
+CSV_FILE_NAME = "city_data_table.csv"

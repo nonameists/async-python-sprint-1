@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, validator, conlist
+from pydantic import BaseModel, validator
 
 from config import WEATHER_CONDITIONS
 
@@ -38,3 +38,14 @@ class CalculatedCityWeatherDataModel(BaseModel):
     days: List[CityDayWeatherModel]
     total_average_temp: float
     total_average_good_weather_hours: float
+    rating: Optional[int]
+
+    def get_avg_temp_data(self) -> List[float]:
+        """Метод модели возвращает список средних температур по всем дням."""
+        result = [day.average_temp for day in self.days]
+        return result
+
+    def get_all_good_weather_hours(self) -> List[float]:
+        """Метод модели возвращает список кол-ва ясных часов по всем дням."""
+        result = [day.good_weather_hours for day in self.days]
+        return result
