@@ -1,7 +1,7 @@
 import csv
-import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from typing import List, Dict, Optional, Iterator
+from threading import Lock
+from typing import List, Dict, Optional, Iterator, Tuple
 
 from api_client import YandexWeatherAPI
 from config import logger, GOOD_WEATHER_CONDITIONS, CSV_FILE_NAME
@@ -23,7 +23,7 @@ class DataFetchingTask:
         """
         logger.info("Начинаем забирать данные по городам")
 
-        with ThreadPoolExecutor(max_workers=os.cpu_count() + 4) as pool:
+        with ThreadPoolExecutor() as pool:
             raw_cities_data_response = pool.map(
                 self._fetch_city_forecast_data, self.cities
             )
@@ -174,20 +174,21 @@ class DataAnalyzingTask:
 class DataAggregationTask:
     def __init__(self, data: List[CalculatedCityWeatherDataModel]) -> None:
         self.data = data
+        self._locker = Lock()
 
     def save_data_to_csv(self) -> None:
         """Публичный метод сохранения данных в csv файл."""
-        data_to_csv = self._prepare_data_to_csv()
+        data_to_csv, csv_headers = self._prepare_data_to_csv()
+        logger.info("Запуск импорта данных в csv файл")
+        self._write_headers(csv_headers)
 
-        with open(CSV_FILE_NAME, "w") as file:
-            logger.info("Запуск импорта данных в csv файл")
-            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC)
+        with ThreadPoolExecutor() as pool:
             for row in data_to_csv:
-                writer.writerow(row)
+                pool.submit(self._write_row_to_csv, row)
         logger.info(f"CSV файл {CSV_FILE_NAME} успешно создан")
         print(f"CSV файл {CSV_FILE_NAME} успешно создан")
 
-    def _prepare_data_to_csv(self) -> List:
+    def _prepare_data_to_csv(self) -> Tuple[List, List]:
         """Внутренний метод подготовки данных для создания csv файла."""
         logger.info("Запуск подготовки данных для импорта в csv таблицу")
         headers = [
@@ -198,7 +199,7 @@ class DataAggregationTask:
             "Рейтинг",
         ]
 
-        data_to_csv = [headers]
+        data_to_csv = []
 
         for city in self.data:
             temp_data = [
@@ -218,4 +219,18 @@ class DataAggregationTask:
             ]
             data_to_csv.append(good_hours_data)
 
-        return data_to_csv
+        return data_to_csv, headers
+
+    def _write_row_to_csv(self, row: List) -> None:
+        """Внутренний метод записи строк в csv файл. Поток блокируется перед записью строки."""
+        with open(CSV_FILE_NAME, "a") as file:
+            with self._locker:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC)
+                writer.writerow(row)
+
+    def _write_headers(self, headers: List[str]) -> None:
+        """Внутренний метод записи хедеров в csv файл. Используется режим 'w' для 'обнуления' файла."""
+        with open(CSV_FILE_NAME, "w") as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC)
+            writer.writerow(headers)
+
